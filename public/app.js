@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         urlData = []; // Clear current table temporarily
         
         try {
-            const response = await fetch(`http://localhost:3000/api/sitemap?url=${encodeURIComponent(sitemapUrl)}`);
+            const response = await fetch(`/api/sitemap?url=${encodeURIComponent(sitemapUrl)}`);
             const data = await response.json();
             
             if (data.error) throw new Error(data.error);
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stopBtn.disabled = true;
         
         try {
-            await fetch(`http://localhost:3000/api/stop`);
+            await fetch(`/api/stop`);
             // El próximo polling se dará cuenta de que el server paró y actualizará el UI
         } catch(e) {
             console.error("Error stopping", e);
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchProgress() {
         try {
-            const response = await fetch(`http://localhost:3000/api/progress`);
+            const response = await fetch(`/api/progress`);
             const data = await response.json();
             
             const stats = data.stats;
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("URL Inválida. No se pudo encontrar el ID del spreadsheet.");
             }
 
-            const response = await fetch(`http://localhost:3000/api/spreadsheet?id=${encodeURIComponent(sheetId)}`);
+            const response = await fetch(`/api/spreadsheet?id=${encodeURIComponent(sheetId)}`);
             const data = await response.json();
             
             if (data.error) throw new Error(data.error);
@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function fetchSpreadsheetData() {
         try {
-            const response = await fetch(`http://localhost:3000/api/spreadsheet-data`);
+            const response = await fetch(`/api/spreadsheet-data`);
             const data = await response.json();
             
             if (data.error) throw new Error(data.error);
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function fetchNextUpdate() {
         try {
-            const response = await fetch(`http://localhost:3000/api/spreadsheet-next-update`);
+            const response = await fetch(`/api/spreadsheet-next-update`);
             const data = await response.json();
             if (data.success) {
                 const parts = data.nextUpdateBA.split(' '); 
