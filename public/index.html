@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FVG SEO Tools</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+                <h2>FVG SEO</h2>
+            </div>
+            <nav>
+                <ul id="tab-nav">
+                    <li class="active" data-target="sitemap"><a href="#"><i class="fas fa-sitemap"></i> Status Sitemap</a></li>
+                    <li data-target="spreadsheet"><a href="#"><i class="fas fa-file-excel"></i> Spreadsheets</a></li>
+                    <li data-target="dashboard"><a href="#"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <h1 id="topbar-title">Status Sitemap</h1>
+                <div class="user-profile">
+                    <div class="avatar">SEO</div>
+                </div>
+            </header>
+
+            <!-- SECTION: SITEMAP -->
+            <div id="tab-sitemap" class="tab-pane active">
+                <section class="analyze-section">
+                    <div class="input-group">
+                        <input type="text" id="sitemap-url" value="https://www.fravega.com/sitemaps/listados.xml" placeholder="Ingresa la URL del sitemap...">
+                        <button id="analyze-btn" class="btn btn-primary"><i class="fas fa-bolt"></i> Analizar</button>
+                        <button id="stop-btn" class="btn btn-danger" style="display: none;"><i class="fas fa-stop"></i> Detener (<span id="progress-indicator">0</span>%)</button>
+                    </div>
+                    <div class="status-message" id="status-message">Listo para analizar.</div>
+                </section>
+
+            <!-- Dashboard Widgets -->
+            <section class="dashboard-widgets" id="dashboard" style="display: none;">
+                <div class="widget">
+                    <div class="widget-icon primary"><i class="fas fa-file-alt"></i></div>
+                    <div class="widget-info">
+                        <h3>Total de Páginas</h3>
+                        <p id="total-urls">0</p>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-icon success"><i class="fas fa-clock"></i></div>
+                    <div class="widget-info">
+                        <h3>Actualización Sitemap</h3>
+                         <div class="scroll-wrapper"><p id="last-updated">-</p></div>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-icon warning"><i class="fas fa-server"></i></div>
+                    <div class="widget-info">
+                        <h3>Status Codes</h3>
+                        <div class="status-codes-summary" id="status-codes-summary">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-icon danger"><i class="fas fa-box-open"></i></div>
+                    <div class="widget-info">
+                        <h3>Sin Stock</h3>
+                        <p id="out-of-stock">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Table -->
+            <section class="table-section" id="table-container" style="display: none;">
+                <div class="table-header">
+                    <h2>Detalles de URLs</h2>
+                    <div class="table-actions">
+                        <button class="btn btn-outline" id="export-csv"><i class="fas fa-download"></i> Exportar CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="urls-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="url">URL <i class="fas fa-sort"></i></th>
+                                <th data-sort="status">Status <i class="fas fa-sort"></i></th>
+                                <th data-sort="stock">Stock <i class="fas fa-sort"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            </div>
+
+            <!-- SECTION: SPREADSHEETS -->
+            <div id="tab-spreadsheet" class="tab-pane" style="display: none;">
+                <section class="analyze-section" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1; min-width: 300px;">
+                        <div class="input-group">
+                            <input type="text" id="sheet-url" value="https://docs.google.com/spreadsheets/d/1oPzqJaragvYG82vKawnajhHD9BnArdDqMBVduCeW9eI" placeholder="URL del Google Spreadsheet">
+                            <button id="sheet-fetch-btn" class="btn btn-primary"><i class="fas fa-cloud-download-alt"></i> Cargar</button>
+                        </div>
+                        <div class="status-message" id="sheet-status">Ingresa la URL para listar.</div>
+                    </div>
+                    
+                    <div id="sheet-inline-stats" style="display: none; gap: 1rem; align-items: stretch; flex-wrap: wrap;">
+                        <div class="widget" style="padding: 1rem; margin: 0; min-width: 200px;">
+                            <div class="widget-icon primary" style="width: 40px; height: 40px; font-size: 1.2rem;"><i class="fas fa-list-ol"></i></div>
+                            <div class="widget-info">
+                                <h3>Líneas Leídas</h3>
+                                <p id="sheet-total-urls" style="font-size: 1.2rem;">0</p>
+                            </div>
+                        </div>
+                        <div class="widget" style="padding: 1rem; margin: 0; min-width: 200px;">
+                            <div class="widget-icon success" style="width: 40px; height: 40px; font-size: 1.2rem;"><i class="fas fa-clock"></i></div>
+                            <div class="widget-info">
+                                <h3>Actualizado el:</h3>
+                                <div class="scroll-wrapper" style="height: auto; max-height: none;"><p id="sheet-last-updated" style="font-size: 1rem;">-</p></div>
+                            </div>
+                        </div>
+                        <div class="widget" style="padding: 1rem; margin: 0; min-width: 240px;">
+                            <div class="widget-icon warning" style="width: 40px; height: 40px; font-size: 1.2rem;"><i class="fas fa-hourglass-half"></i></div>
+                            <div class="widget-info">
+                                <h3>Próxima Actualización</h3>
+                                <div class="scroll-wrapper" style="height: auto; max-height: none;"><p id="sheet-next-update" style="font-size: 1rem;">-</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="table-section" id="sheet-table-container" style="display: none;">
+                    <div class="table-header">
+                        <h2>URLs de Spreadsheet</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="sheet-table">
+                            <thead>
+                                <tr>
+                                    <th>N°</th>
+                                    <th>URL del Spreadsheet</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sheet-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- SECTION: DASHBOARD -->
+            <div id="tab-dashboard" class="tab-pane" style="display: none;">
+                <section class="table-section">
+                    <h2>Dashboard Global</h2>
+                    <p style="color: var(--text-sec); margin-top: 1rem;">Sección en construcción para métricas y gráficos visuales cruzados.</p>
+                </section>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

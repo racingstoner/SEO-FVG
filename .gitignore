@@ -1,0 +1,4 @@
+node_modules/
+.env
+seo_data.db
+.DS_Store
