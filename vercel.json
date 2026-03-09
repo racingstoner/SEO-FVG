@@ -23,7 +23,7 @@
   "crons": [
     {
       "path": "/api/cron-update-sheets",
-      "schedule": "0 10,21 * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
