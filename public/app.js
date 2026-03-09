@@ -76,10 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     exportCsvBtn.addEventListener('click', exportCSV);
 
-    // Initial load: check if server is already processing something
-    startPolling();
+    // Petición del usuario: Pausar esta funcionalidad para no golpear los servidores de Fravega.
+    // startPolling();
 
     async function startAnalysis() {
+        alert("El análisis de Sitemap ha sido pausado temporalmente a petición para no saturar los servidores de Fravega.");
+        return;
+        /*
         const sitemapUrl = sitemapUrlInput.value.trim();
         if (!sitemapUrl) return;
 
@@ -108,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.innerHTML = `<i class="fas fa-times-circle" style="color: var(--danger)"></i> Error: ${error.message}`;
             analyzeBtn.style.display = 'flex';
         }
+        */
     }
     
     function startPolling() {
