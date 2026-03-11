@@ -36,54 +36,16 @@ const getSingleQuery = (query, params = []) => new Promise((resolve, reject) => 
     });
 });
 
-// START SITEMAP ANALYSIS
-app.get('/api/sitemap', async (req, res) => {
+// GET SPREADSHEET URLS MANUAL
+// We moved it up here
+app.get('/api/spreadsheet', async (req, res) => {
     try {
-        const sitemapUrl = req.query.url || 'https://www.fravega.com/sitemaps/listados.xml';
-        
-        console.log(`Obteniendo sitemap: ${sitemapUrl}`);
-        const response = await axios.get(sitemapUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) SEO-FVG-Tool' }
-        });
-        
-        const xmlData = response.data;
-        
-        const sitemapLastUpdated = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" })
-                                             .replace(', ', ' ')
-                                             .replace('  ', ' ');
-        
-        const $ = cheerio.load(xmlData, { xmlMode: true });
-        const urls = [];
-        $('url').each((i, el) => {
-            const loc = $(el).find('loc').text();
-            const lastmod = $(el).find('lastmod').text();
-            if (loc) {
-                urls.push({ loc, lastmod });
-            }
-        });
-
-        // Clear existing DB and start fresh
-        await runQuery('DELETE FROM urls');
-        await runQuery('DELETE FROM metadata');
-        
-        // Use a transaction for fast bulk insert
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
-            urls.forEach(u => {
-                db.run('INSERT INTO urls (url, lastmod) VALUES (?, ?)', [u.loc, u.lastmod]);
-            });
-            db.run('INSERT INTO metadata (key, value) VALUES (?, ?)', ['totalUrls', urls.length]);
-            db.run('INSERT INTO metadata (key, value) VALUES (?, ?)', ['lastUpdated', sitemapLastUpdated]);
-            db.run('COMMIT');
-        });
-
-        stopRequested = false;
-        startBackgroundProcessing();
-
-        res.json({ success: true, message: 'Análisis iniciado en background.', totalUrls: urls.length });
-    } catch (error) {
-        console.error('Error al obtener sitemap:', error.message);
-        res.status(500).json({ error: 'Fallo al obtener o interpretar sitemap' });
+        const sheetId = req.query.id || DEFAULT_SHEET_ID;
+        const count = await fetchSpreadsheetLogic(sheetId);
+        res.json({ success: true, message: 'Spreadsheet importado.', totalUrls: count });
+    } catch (err) {
+        console.error("Error al obtener Spreadsheet:", err);
+        res.status(500).json({ error: "No se pudo leer el Spreadsheet. Verifica que sea público y tenga una hoja llamada 'Listados'." });
     }
 });
 
@@ -206,13 +168,17 @@ async function fetchSpreadsheetLogic(sheetId) {
         }
     }
 
-    await runQuery('DELETE FROM spreadsheet_urls');
     let validUrls = 0;
 
     return new Promise((resolve, reject) => {
         db.serialize(async () => {
             try {
                 db.run('BEGIN TRANSACTION');
+                
+                const processUrl = (urlStr) => {
+                    db.run("INSERT OR IGNORE INTO urls (url, status, inStock) VALUES (?, 'Pendiente', '-')", [urlStr]);
+                    validUrls++;
+                };
                 
                 if (!isHtmlView) {
                     const records = parse(response.data, { columns: false, skip_empty_lines: true });
@@ -221,8 +187,7 @@ async function fetchSpreadsheetLogic(sheetId) {
                         if (row.length > 1) {
                             const colB = row[1] ? row[1].trim() : '';
                             if (colB.startsWith('http')) {
-                                db.run('INSERT INTO spreadsheet_urls (url) VALUES (?)', [colB]);
-                                validUrls++;
+                                processUrl(colB);
                             }
                         }
                     }
@@ -239,8 +204,7 @@ async function fetchSpreadsheetLogic(sheetId) {
                             else if (colCText.startsWith('http')) urlCandidate = colCText;
 
                             if (urlCandidate !== '') {
-                                 db.run('INSERT INTO spreadsheet_urls (url) VALUES (?)', [urlCandidate]);
-                                 validUrls++;
+                                 processUrl(urlCandidate);
                             }
                         }
                     });
@@ -249,7 +213,13 @@ async function fetchSpreadsheetLogic(sheetId) {
 
                 const buenosAiresTime = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" })
                                           .replace(', ', ' ').replace('  ', ' ');
-                await runQuery('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)', ['sheetLastUpdated', buenosAiresTime]);
+                // We use lastUpdated so the frontend dashboard picks it up
+                await runQuery('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)', ['lastUpdated', buenosAiresTime]);
+                await runQuery('DELETE FROM metadata WHERE key = ?', ['totalUrls']);
+                
+                // Start tracking background validation automatically
+                stopRequested = false;
+                startBackgroundProcessing();
                 
                 resolve(validUrls);
             } catch(e) {
@@ -290,30 +260,7 @@ app.get('/api/cron-update-sheets', async (req, res) => {
 });
 
 
-// GET SPREADSHEET URLS MANUAL
-app.get('/api/spreadsheet', async (req, res) => {
-    try {
-        const sheetId = req.query.id || DEFAULT_SHEET_ID;
-        const count = await fetchSpreadsheetLogic(sheetId);
-        res.json({ success: true, message: 'Spreadsheet importado.', totalUrls: count });
-    } catch (err) {
-        console.error("Error al obtener Spreadsheet:", err);
-        res.status(500).json({ error: "No se pudo leer el Spreadsheet. Verifica que sea público y tenga una hoja llamada 'Listados'." });
-    }
-});
-
-// GET SPREADSHEET DATA FOR FRONTEND
-app.get('/api/spreadsheet-data', async (req, res) => {
-    try {
-        const urls = await getQuery('SELECT * FROM spreadsheet_urls ORDER BY id ASC');
-        const metadataRows = await getQuery("SELECT value FROM metadata WHERE key = 'sheetLastUpdated'");
-        const lastUpdated = metadataRows.length > 0 ? metadataRows[0].value : '-';
-        
-        res.json({ success: true, urls, lastUpdated });
-    } catch (err) {
-        res.status(500).json({ error: "Error leyendo datos locales del spreadsheet." });
-    }
-});
+// Removed /api/spreadsheet-data and redundant /api/spreadsheet
 
 // GET NEXT CRON EXECUTION TIME
 app.get('/api/spreadsheet-next-update', (req, res) => {

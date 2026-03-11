@@ -30,10 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Sitemap Logic ---
+    // --- Spreadsheet Analysis Logic ---
     const analyzeBtn = document.getElementById('analyze-btn');
     const stopBtn = document.getElementById('stop-btn');
-    const sitemapUrlInput = document.getElementById('sitemap-url');
+    const sheetUrlInput = document.getElementById('sheet-url');
     const statusMessage = document.getElementById('status-message');
     const progressEl = document.getElementById('progress-indicator');
     
@@ -76,15 +76,48 @@ document.addEventListener('DOMContentLoaded', () => {
     
     exportCsvBtn.addEventListener('click', exportCSV);
 
-    // Petición del usuario: Pausar esta funcionalidad para no golpear los servidores de Fravega.
-    // startPolling();
+    const sheetNextUpdate = document.getElementById('sheet-next-update');
+    
+    async function fetchNextUpdate() {
+        if (!sheetNextUpdate) return;
+        try {
+            const response = await fetch(`/api/spreadsheet-next-update`);
+            const data = await response.json();
+            if (data.success) {
+                const parts = data.nextUpdateBA.split(' '); 
+                let html = '';
+                if (parts.length >= 2) {
+                    html = `${parts[0]}<br><span class="time-small">${parts[1]} hs</span>`;
+                } else {
+                    html = data.nextUpdateBA;
+                }
+                
+                let countdownStr = "En ";
+                if (data.hoursLeft > 0) countdownStr += `${data.hoursLeft}h `;
+                countdownStr += `${data.minutesLeft}m`;
+                
+                sheetNextUpdate.innerHTML = `${html}<br><span class="time-small" style="color: var(--warning); font-weight: bold;">(Faltan: ${countdownStr})</span>`;
+            }
+        } catch (e) {
+            console.error("fetchNextUpdate error", e);
+        }
+    }
+    
+    fetchNextUpdate();
+    setInterval(fetchNextUpdate, 60000);
 
     async function startAnalysis() {
-        alert("El análisis de Sitemap ha sido pausado temporalmente a petición para no saturar los servidores de Fravega.");
-        return;
-        /*
-        const sitemapUrl = sitemapUrlInput.value.trim();
-        if (!sitemapUrl) return;
+        const urlStr = sheetUrlInput.value.trim();
+        if (!urlStr) return;
+
+        let sheetId = "";
+        const match = urlStr.match(/\/d\/(.*?)(\/|$)/);
+        if (match && match[1]) {
+            sheetId = match[1];
+        } else {
+            alert("URL Inválida. No se pudo encontrar el ID del spreadsheet.");
+            return;
+        }
 
         // Reset UI
         analyzeBtn.style.display = 'none';
@@ -92,17 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
         tableContainer.style.display = 'block';
         tableBody.innerHTML = '';
         statusCodesSummaryEl.innerHTML = '';
-        statusMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando Sitemap... guardando en BD...';
+        statusMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo y guardando URLs desde Google Sheets...';
         currentPage = 1;
-        urlData = []; // Clear current table temporarily
+        urlData = [];
         
         try {
-            const response = await fetch(`/api/sitemap?url=${encodeURIComponent(sitemapUrl)}`);
+            const response = await fetch(`/api/spreadsheet?id=${encodeURIComponent(sheetId)}`);
             const data = await response.json();
             
             if (data.error) throw new Error(data.error);
             
-            // Wait 1 second before first poll just to give DB time to write
             setTimeout(() => {
                 startPolling();
             }, 1000);
@@ -111,7 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.innerHTML = `<i class="fas fa-times-circle" style="color: var(--danger)"></i> Error: ${error.message}`;
             analyzeBtn.style.display = 'flex';
         }
-        */
     }
     
     function startPolling() {
@@ -367,192 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(link);
     }
     
-    // --- Spreadsheet Logic ---
-    const sheetFetchBtn = document.getElementById('sheet-fetch-btn');
-    const sheetUrlInput = document.getElementById('sheet-url');
-    const sheetDashboard = document.getElementById('sheet-dashboard');
-    const sheetInlineStats = document.getElementById('sheet-inline-stats');
-    const sheetTotalUrls = document.getElementById('sheet-total-urls');
-    const sheetLastUpdated = document.getElementById('sheet-last-updated');
-    const sheetNextUpdate = document.getElementById('sheet-next-update');
-    const sheetTableContainer = document.getElementById('sheet-table-container');
-    const sheetTableBody = document.getElementById('sheet-table-body');
-    
-    let sheetData = [];
-    let sheetCurrentPage = 1;
-    const sheetRowsPerPage = 15;
-    let nextUpdateInterval = null;
-    
-    // Pagination elements for sheet
-    const sheetPaginationContainer = document.createElement('div');
-    sheetPaginationContainer.className = 'pagination';
-    sheetTableContainer.appendChild(sheetPaginationContainer);
-
-    sheetFetchBtn.addEventListener('click', fetchSpreadsheet);
-    
-    async function fetchSpreadsheet() {
-        const urlStr = sheetUrlInput.value.trim();
-        if (!urlStr) return;
-        
-        // Disable button, show loading
-        sheetFetchBtn.disabled = true;
-        sheetFetchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
-        sheetInlineStats.style.display = 'none';
-        sheetTableContainer.style.display = 'none';
-        
-        try {
-            // Encode just the ID so the backend can build the CSV export link
-            let sheetId = "";
-            const match = urlStr.match(/\/d\/(.*?)(\/|$)/);
-            if (match && match[1]) {
-                sheetId = match[1];
-            } else {
-                throw new Error("URL Inválida. No se pudo encontrar el ID del spreadsheet.");
-            }
-
-            const response = await fetch(`/api/spreadsheet?id=${encodeURIComponent(sheetId)}`);
-            const data = await response.json();
-            
-            if (data.error) throw new Error(data.error);
-            
-            // Loaded successfully, fetch the data
-            await fetchSpreadsheetData();
-            
-        } catch (error) {
-            console.error('Error:', error.message);
-            sheetTotalUrls.textContent = 'Error';
-            sheetLastUpdated.textContent = 'Error';
-            sheetInlineStats.style.display = 'flex';
-        }
-        
-        sheetFetchBtn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Cargar';
-        sheetFetchBtn.disabled = false;
-    }
-    
-    async function fetchSpreadsheetData() {
-        try {
-            const response = await fetch(`/api/spreadsheet-data`);
-            const data = await response.json();
-            
-            if (data.error) throw new Error(data.error);
-            
-            sheetData = data.urls || [];
-            sheetTotalUrls.textContent = sheetData.length;
-
-            if (data.lastUpdated && data.lastUpdated !== '-') {
-                // Now receiving standardized "dd/mm/yyyy hh:mm:ss" from server
-                const parts = data.lastUpdated.split(' '); 
-                if (parts.length >= 2) {
-                    sheetLastUpdated.innerHTML = `${parts[0]}<br><span class="time-small">${parts[1]}</span>`;
-                } else {
-                    sheetLastUpdated.textContent = data.lastUpdated;
-                }
-            } else {
-                sheetLastUpdated.textContent = '-';
-            }
-            
-            if (sheetData.length > 0) {
-                sheetInlineStats.style.display = 'flex';
-                sheetTableContainer.style.display = 'block';
-                sheetCurrentPage = 1;
-                renderSheetTable();
-                renderSheetPagination();
-            } else {
-                sheetTotalUrls.textContent = '0 (Vacío)';
-                sheetInlineStats.style.display = 'flex';
-            }
-            
-            // Kickoff next update timer
-            fetchNextUpdate();
-            if(nextUpdateInterval) clearInterval(nextUpdateInterval);
-            nextUpdateInterval = setInterval(fetchNextUpdate, 60000); // refresh every minute
-            
-        } catch (err) {
-             console.error('Error render:', err.message);
-        }
-    }
-    
-    async function fetchNextUpdate() {
-        try {
-            const response = await fetch(`/api/spreadsheet-next-update`);
-            const data = await response.json();
-            if (data.success) {
-                const parts = data.nextUpdateBA.split(' '); 
-                let html = '';
-                if (parts.length >= 2) {
-                    html = `${parts[0]}<br><span class="time-small">${parts[1]} hs</span>`;
-                } else {
-                    html = data.nextUpdateBA;
-                }
-                
-                // Add countdown text below
-                let countdownStr = "En ";
-                if (data.hoursLeft > 0) countdownStr += `${data.hoursLeft}h `;
-                countdownStr += `${data.minutesLeft}m`;
-                
-                sheetNextUpdate.innerHTML = `${html}<br><span class="time-small" style="color: var(--warning); font-weight: bold;">(Faltan: ${countdownStr})</span>`;
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    
-    function renderSheetTable() {
-        sheetTableBody.innerHTML = '';
-        if (sheetData.length === 0) return;
-
-        const startIndex = (sheetCurrentPage - 1) * sheetRowsPerPage;
-        const endIndex = startIndex + sheetRowsPerPage;
-        const paginatedItems = sheetData.slice(startIndex, endIndex);
-
-        paginatedItems.forEach((item, index) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${startIndex + index + 1}</td>
-                <td class="td-url"><a href="${item.url}" target="_blank" title="${item.url}">${item.url}</a></td>
-            `;
-            sheetTableBody.appendChild(tr);
-        });
-    }
-
-    function renderSheetPagination() {
-        sheetPaginationContainer.innerHTML = '';
-        const totalPages = Math.ceil(sheetData.length / sheetRowsPerPage);
-        if (totalPages <= 1) return;
-
-        const prevBtn = document.createElement('button');
-        prevBtn.innerText = 'Anterior';
-        prevBtn.disabled = sheetCurrentPage === 1;
-        prevBtn.className = 'btn btn-outline btn-sm';
-        prevBtn.addEventListener('click', () => {
-            if (sheetCurrentPage > 1) {
-                sheetCurrentPage--;
-                renderSheetTable();
-                renderSheetPagination();
-            }
-        });
-        
-        const nextBtn = document.createElement('button');
-        nextBtn.innerText = 'Siguiente';
-        nextBtn.disabled = sheetCurrentPage === totalPages;
-        nextBtn.className = 'btn btn-outline btn-sm';
-        nextBtn.addEventListener('click', () => {
-            if (sheetCurrentPage < totalPages) {
-                sheetCurrentPage++;
-                renderSheetTable();
-                renderSheetPagination();
-            }
-        });
-
-        const pageInfo = document.createElement('span');
-        pageInfo.className = 'page-info';
-        pageInfo.innerText = `Página ${sheetCurrentPage} de ${totalPages}`;
-
-        sheetPaginationContainer.appendChild(prevBtn);
-        sheetPaginationContainer.appendChild(pageInfo);
-        sheetPaginationContainer.appendChild(nextBtn);
-    }
-
-    // Auto-load spreadsheet list on startup if it has history saved
-    fetchSpreadsheetData();
+    // Auto-load on startup
+    startPolling();
 });
