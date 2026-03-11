@@ -16,6 +16,7 @@
                 <i class="fas fa-chart-line"></i>
                 <h2>FVG SEO</h2>
             </div>
+            <nav>
                 <ul id="tab-nav">
                     <li class="active" data-target="spreadsheet"><a href="#"><i class="fas fa-file-excel"></i> Spreadsheets</a></li>
                     <li data-target="dashboard"><a href="#"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
@@ -46,40 +47,17 @@
                 <!-- Dashboard Widgets -->
                 <section class="dashboard-widgets" id="dashboard" style="display: none;">
                     <div class="widget">
-                        <div class="widget-icon primary"><i class="fas fa-file-alt"></i></div>
+                        <div class="widget-icon primary"><i class="fas fa-list-ol"></i></div>
                         <div class="widget-info">
-                            <h3>Total de Páginas</h3>
+                            <h3>Cantidad de URLs</h3>
                             <p id="total-urls">0</p>
                         </div>
                     </div>
                     <div class="widget">
                         <div class="widget-icon success"><i class="fas fa-clock"></i></div>
                         <div class="widget-info">
-                            <h3>Actualización</h3>
+                            <h3>Última vez analizado</h3>
                              <div class="scroll-wrapper"><p id="last-updated">-</p></div>
-                        </div>
-                    </div>
-                    <div class="widget">
-                        <div class="widget-icon warning"><i class="fas fa-server"></i></div>
-                        <div class="widget-info">
-                            <h3>Status Codes</h3>
-                            <div class="status-codes-summary" id="status-codes-summary">
-                                <!-- Injected by JS -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="widget">
-                        <div class="widget-icon danger"><i class="fas fa-box-open"></i></div>
-                        <div class="widget-info">
-                            <h3>Sin Stock</h3>
-                            <p id="out-of-stock">0</p>
-                        </div>
-                    </div>
-                    <div class="widget">
-                        <div class="widget-icon warning"><i class="fas fa-hourglass-half"></i></div>
-                        <div class="widget-info">
-                            <h3>Próxima Auto-Act.</h3>
-                            <div class="scroll-wrapper"><p id="sheet-next-update">-</p></div>
                         </div>
                     </div>
                 </section>
@@ -96,9 +74,8 @@
                         <table id="urls-table">
                             <thead>
                                 <tr>
+                                    <th>N°</th>
                                     <th data-sort="url">URL <i class="fas fa-sort"></i></th>
-                                    <th data-sort="status">Status <i class="fas fa-sort"></i></th>
-                                    <th data-sort="stock">Stock <i class="fas fa-sort"></i></th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">

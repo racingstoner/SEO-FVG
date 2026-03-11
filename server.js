@@ -168,6 +168,8 @@ async function fetchSpreadsheetLogic(sheetId) {
         }
     }
 
+    // Completely replace previous analyzed list per new requirements
+    await runQuery('DELETE FROM urls');
     let validUrls = 0;
 
     return new Promise((resolve, reject) => {

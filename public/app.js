@@ -41,8 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboard = document.getElementById('dashboard');
     const totalUrlsEl = document.getElementById('total-urls');
     const lastUpdatedEl = document.getElementById('last-updated');
-    const statusCodesSummaryEl = document.getElementById('status-codes-summary');
-    const outOfStockEl = document.getElementById('out-of-stock');
     
     // Table elements
     const tableContainer = document.getElementById('table-container');
@@ -61,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pagination state
     let currentPage = 1;
-    const rowsPerPage = 15;
+    const rowsPerPage = 20;
     
     // Sorting state
     let sortCol = '';
@@ -75,36 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     exportCsvBtn.addEventListener('click', exportCSV);
-
-    const sheetNextUpdate = document.getElementById('sheet-next-update');
-    
-    async function fetchNextUpdate() {
-        if (!sheetNextUpdate) return;
-        try {
-            const response = await fetch(`/api/spreadsheet-next-update`);
-            const data = await response.json();
-            if (data.success) {
-                const parts = data.nextUpdateBA.split(' '); 
-                let html = '';
-                if (parts.length >= 2) {
-                    html = `${parts[0]}<br><span class="time-small">${parts[1]} hs</span>`;
-                } else {
-                    html = data.nextUpdateBA;
-                }
-                
-                let countdownStr = "En ";
-                if (data.hoursLeft > 0) countdownStr += `${data.hoursLeft}h `;
-                countdownStr += `${data.minutesLeft}m`;
-                
-                sheetNextUpdate.innerHTML = `${html}<br><span class="time-small" style="color: var(--warning); font-weight: bold;">(Faltan: ${countdownStr})</span>`;
-            }
-        } catch (e) {
-            console.error("fetchNextUpdate error", e);
-        }
-    }
-    
-    fetchNextUpdate();
-    setInterval(fetchNextUpdate, 60000);
 
     async function startAnalysis() {
         const urlStr = sheetUrlInput.value.trim();
@@ -124,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboard.style.display = 'grid';
         tableContainer.style.display = 'block';
         tableBody.innerHTML = '';
-        statusCodesSummaryEl.innerHTML = '';
         statusMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo y guardando URLs desde Google Sheets...';
         currentPage = 1;
         urlData = [];
@@ -214,20 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 lastUpdatedEl.textContent = '-';
             }
-            outOfStockEl.textContent = stats.outOfStock;
-            
-            // Update Status Codes indicators
-            let statusHtml = '';
-            for (const [group, count] of Object.entries(stats.statusCodes)) {
-                let badgeClass = 'badge';
-                if (group === '2xx') badgeClass += ' b-200';
-                else if (group === '3xx') badgeClass += ' b-404'; // yellow
-                else if (group === '4xx') badgeClass += ' b-404'; // yellow
-                else if (group === '5xx') badgeClass += ' b-500'; // red
-                
-                statusHtml += `<span class="${badgeClass}">${group}: ${count}</span>`;
-            }
-            statusCodesSummaryEl.innerHTML = statusHtml || '-';
             
             // Update Progress Tracking
             let progress = 0;
@@ -282,28 +235,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const endIndex = startIndex + rowsPerPage;
         const paginatedItems = urlData.slice(startIndex, endIndex);
 
-        paginatedItems.forEach((item) => {
+        paginatedItems.forEach((item, index) => {
             const tr = document.createElement('tr');
             
-            let statusClass = 'status-unknown';
-            if (item.status && item.status !== 'Pendiente') {
-                const s = parseInt(item.status);
-                if (s >= 200 && s < 300) statusClass = 'status-200';
-                else if (s >= 300 && s < 500) statusClass = 'status-4xx';
-                else if (s >= 500) statusClass = 'status-5xx';
-            }
-            
-            let stockHtml = '<span>-</span>';
-            if (item.inStock === 'Sí') {
-                stockHtml = '<span class="stock-badge stock-yes"><i class="fas fa-check-circle"></i> Sí</span>';
-            } else if (item.inStock === 'No') {
-                stockHtml = '<span class="stock-badge stock-no"><i class="fas fa-times-circle"></i> No</span>';
-            }
+            // Calculate absolute row number based on pagination
+            const rowNumber = startIndex + index + 1;
 
             tr.innerHTML = `
+                <td>${rowNumber}</td>
                 <td class="td-url"><a href="${item.url}" target="_blank" title="${item.url}">${item.url}</a></td>
-                <td><span class="status-badge ${statusClass}">${item.status || 'Pendiente'}</span></td>
-                <td>${stockHtml}</td>
             `;
             tableBody.appendChild(tr);
         });
@@ -383,10 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (urlData.length === 0) return;
         
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "URL,Status,Stock\n";
+        csvContent += "N°,URL\n";
         
-        urlData.forEach(item => {
-            csvContent += `"${item.url}","${item.status || 'Pendiente'}","${item.inStock || '-'}"\n`;
+        urlData.forEach((item, index) => {
+            csvContent += `"${index + 1}","${item.url}"\n`;
         });
         
         const encodedUri = encodeURI(csvContent);
