@@ -140,6 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (urlData.length > 0) {
                 dashboard.style.display = 'grid';
                 tableContainer.style.display = 'block';
+                // Only overwrite if it hasn't been set by the import process
+                if (statusMessage.innerHTML === 'Ingresa la URL y haz clic en Obtener URLs para comenzar.' || statusMessage.innerHTML.includes('Ingresa la URL')) {
+                    statusMessage.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success)"></i> ' + urlData.length + ' URLs cargadas desde la sesión anterior.';
+                }
+            } else {
+                dashboard.style.display = 'none';
+                tableContainer.style.display = 'none';
+                statusMessage.innerHTML = 'Ingresa la URL y haz clic en Obtener URLs para comenzar.';
             }
             
             // Re-apply sorting if any, then render
