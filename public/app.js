@@ -102,9 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (data.error) throw new Error(data.error);
             
-            setTimeout(() => {
-                startPolling();
-            }, 1000);
+            // Spreadsheet fetched successfully and saved to DB
+            statusMessage.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success)"></i> URLs Importadas Correctamente.';
+            analyzeBtn.style.display = 'flex';
+            
+            // Fetch the updated URLs and render
+            fetchProgress();
 
         } catch (error) {
             statusMessage.innerHTML = `<i class="fas fa-times-circle" style="color: var(--danger)"></i> Error: ${error.message}`;
@@ -112,55 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function startPolling() {
-        if (isPolling) return;
-        isPolling = true;
-        
-        dashboard.style.display = 'grid';
-        tableContainer.style.display = 'block';
-        analyzeBtn.style.display = 'none';
-        stopBtn.style.display = 'flex';
-        
-        // Polling loop logic
-        function loadData() {
-            fetchProgress().then(stillProcessing => {
-                if (!stillProcessing && isPolling) {
-                    // Check if it's REALLY totally done or just paused
-                    statusMessage.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success)"></i> Análisis completado (Guardado en Base de Datos).';
-                    stopPolling();
-                } else if (isPolling) {
-                    pollInterval = setTimeout(loadData, 3000); // Queue next pull
-                }
-            }).catch(() => {
-                if (isPolling) pollInterval = setTimeout(loadData, 5000);
-            });
-        }
-        
-        loadData(); 
-    }
-    
-    async function stopAnalysis() {
-        if (!isPolling) return;
-        
-        statusMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Solicitando detención al servidor...';
-        stopBtn.disabled = true;
-        
-        try {
-            await fetch(`/api/stop`);
-            // El próximo polling se dará cuenta de que el server paró y actualizará el UI
-        } catch(e) {
-            console.error("Error stopping", e);
-        }
-    }
-    
-    function stopPolling() {
-        isPolling = false;
-        if (pollInterval) clearTimeout(pollInterval);
-        analyzeBtn.style.display = 'flex';
-        stopBtn.style.display = 'none';
-        stopBtn.disabled = false;
-    }
-
     async function fetchProgress() {
         try {
             const response = await fetch(`/api/progress`);
@@ -182,30 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastUpdatedEl.textContent = '-';
             }
             
-            // Update Progress Tracking
-            let progress = 0;
-            if (stats.total > 0) {
-                progress = Math.round((stats.processed / stats.total) * 100);
-            }
-            progressEl.textContent = progress;
-            
-            // Are we actually done? If server says processing=false OR processed == total
-            let isRunning = data.isProcessing;
-
-            if (isRunning) {
-                statusMessage.innerHTML = `<i class="fas fa-cog fa-spin"></i> Analizando en segundo plano (Progreso: ${progress}% - ${stats.processed}/${stats.total})`;
-            } else {
-                if (stats.total > 0 && stats.processed >= stats.total) {
-                     statusMessage.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success)"></i> Análisis completado (Guardado en Base de Datos).';
-                     isRunning = false; 
-                } else if (stats.total > 0) {
-                     statusMessage.innerHTML = `<i class="fas fa-info-circle"></i> Análisis en pausa (Progreso: ${progress}% - ${stats.processed}/${stats.total}).`;
-                } else {
-                    statusMessage.innerHTML = 'Listo para analizar.';
-                    dashboard.style.display = 'none';
-                    tableContainer.style.display = 'none';
-                    isRunning = false;
-                }
+            // Show table since we have data
+            if (urlData.length > 0) {
+                dashboard.style.display = 'grid';
+                tableContainer.style.display = 'block';
             }
             
             // Re-apply sorting if any, then render
@@ -216,12 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTable();
             renderPagination();
             
-            return isRunning;
-            
         } catch (error) {
             console.error("Error polling database", error);
-            statusMessage.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: var(--danger)"></i> Servidor no responde. Reintentando en 5s...';
-            return true; // pretend it's running so it tries again
+            statusMessage.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: var(--danger)"></i> Error de conexión con la base de datos.';
         }
     }
     
@@ -339,5 +270,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Auto-load on startup
-    startPolling();
+    fetchProgress();
 });

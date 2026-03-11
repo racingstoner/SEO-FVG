@@ -42,90 +42,14 @@ app.get('/api/spreadsheet', async (req, res) => {
     try {
         const sheetId = req.query.id || DEFAULT_SHEET_ID;
         const count = await fetchSpreadsheetLogic(sheetId);
-        res.json({ success: true, message: 'Spreadsheet importado.', totalUrls: count });
+        res.json({ success: true, message: 'Spreadsheet importado exitosamente.', totalUrls: count });
     } catch (err) {
         console.error("Error al obtener Spreadsheet:", err);
         res.status(500).json({ error: "No se pudo leer el Spreadsheet. Verifica que sea público y tenga una hoja llamada 'Listados'." });
     }
 });
 
-// BACKGROUND PROCESSOR
-async function startBackgroundProcessing() {
-    if (isProcessing) return; // Prevent multiple loops
-    isProcessing = true;
-    stopRequested = false;
-    console.log("Iniciando procesamiento en segundo plano...");
 
-    try {
-        let hasPending = true;
-        const chunkSize = 10;
-
-        while (hasPending && !stopRequested) {
-            // Get next pending batch
-            const pendingUrls = await getQuery("SELECT id, url FROM urls WHERE status IS NULL OR status = 'Pendiente' LIMIT ?", [chunkSize]);
-            
-            if (pendingUrls.length === 0) {
-                hasPending = false;
-                break;
-            }
-
-            // Process chunk concurrently
-            await Promise.all(pendingUrls.map(checkUrlAndSave));
-            
-            // Wait 1 second before next batch to be nice to the server
-            await new Promise(res => setTimeout(res, 1000));
-        }
-    } catch (err) {
-        console.error("Error en el bucle de procesamiento en segundo plano", err);
-    } finally {
-        isProcessing = false;
-        console.log("Procesamiento en segundo plano finalizado.");
-    }
-}
-
-async function checkUrlAndSave({ id, url }) {
-    try {
-        const response = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) SEO-FVG-Tool' },
-            validateStatus: () => true,
-            timeout: 10000
-        });
-        
-        const status = response.status;
-        let inStock = '-';
-        
-        if (url.includes('/l/')) {
-            if (status === 200) {
-                const $ = cheerio.load(response.data);
-                const resultsElement = $('span[data-test-id="resultsNumber"]');
-                
-                if (resultsElement.length > 0) {
-                    const resultsNum = parseInt(resultsElement.text().trim(), 10);
-                    inStock = (!isNaN(resultsNum) && resultsNum > 0) ? 'Sí' : 'No';
-                } else {
-                    inStock = 'No';
-                }
-            } else {
-                inStock = 'No';
-            }
-        }
-        
-        await runQuery('UPDATE urls SET status = ?, inStock = ? WHERE id = ?', [status, inStock, id]);
-        
-    } catch (error) {
-        const errStatus = error.response ? error.response.status : 500;
-        await runQuery('UPDATE urls SET status = ?, inStock = ? WHERE id = ?', [errStatus, '-', id]);
-    }
-}
-
-// STOP PROCESS
-app.get('/api/stop', (req, res) => {
-    stopRequested = true;
-    console.log("Se ha solicitado detener el análisis...");
-    res.json({ success: true, message: 'Análisis detenido.' });
-});
-
-// DEFAULT SPREADSHEET URL
 const DEFAULT_SHEET_ID = "1oPzqJaragvYG82vKawnajhHD9BnArdDqMBVduCeW9eI";
 
 // FUNCTION TO FETCH SPREADSHEET LOGIC
@@ -213,15 +137,12 @@ async function fetchSpreadsheetLogic(sheetId) {
                 }
                 db.run('COMMIT');
 
+
                 const buenosAiresTime = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" })
                                           .replace(', ', ' ').replace('  ', ' ');
                 // We use lastUpdated so the frontend dashboard picks it up
                 await runQuery('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)', ['lastUpdated', buenosAiresTime]);
                 await runQuery('DELETE FROM metadata WHERE key = ?', ['totalUrls']);
-                
-                // Start tracking background validation automatically
-                stopRequested = false;
-                startBackgroundProcessing();
                 
                 resolve(validUrls);
             } catch(e) {
@@ -354,17 +275,6 @@ if (process.env.VERCEL) {
     module.exports = app;
 } else {
     app.listen(PORT, () => {
-        console.log(`Servidor SEO Backend con DB escuchando en http://localhost:${PORT}`);
-        
-        // Auto-resume if there are pending jobs on startup, wait a bit for DB to init
-        setTimeout(() => {
-            getQuery("SELECT count(*) as count FROM urls WHERE status IS NULL OR status = 'Pendiente'")
-                .then(res => {
-                    if (res[0].count > 0) {
-                        console.log(`Encontradas ${res[0].count} URLs pendientes. Reanudando proceso en segundo plano...`);
-                        startBackgroundProcessing();
-                    }
-                }).catch(err => console.error("Error al reanudar:", err.message));
-        }, 1000);
+        console.log(`Servidor SEO Backend escuchando en http://localhost:${PORT}`);
     });
 }
